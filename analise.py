@@ -92,20 +92,23 @@ def recorte():
 
 
 # ---------------------------------------------------------------------------
-# 4) Matriz de transferência de votos (inferência ecológica)
-#    Para cada município i:  2º turno[i, k] ≈ Σ_j 1º turno[i, j] · P[j, k]
+# 4) Inferência ecológica
+#    Para cada município i:  resultado[i, k] ≈ Σ_j grupo[i, j] · P[j, k]
 #    com P >= 0 e cada linha de P somando 1. Estimada por mínimos quadrados
 #    ponderados pelo tamanho do município.
 # ---------------------------------------------------------------------------
-@st.cache_data
-def matriz_transferencia(mun: pd.DataFrame) -> pd.DataFrame:
-    a = mun[[f"t1_{g}" for g in ORIGENS]].to_numpy(float)
-    b = mun[[f"t2_{g}" for g in DESTINOS]].to_numpy(float)
-    total = a.sum(axis=1)
-    ok = total > 0
-    a, b, total = a[ok] / total[ok, None], b[ok] / total[ok, None], total[ok]
+def ajustar_proporcoes(grupos: np.ndarray, resultado: np.ndarray) -> np.ndarray:
+    """P[j, k] = parcela do grupo j que terminou no resultado k (cada linha soma 1).
+
+    grupos e resultado são contagens por município; cada um é convertido em proporção
+    do próprio total, para que fontes diferentes (perfil x votação) possam ser comparadas.
+    """
+    total = grupos.sum(axis=1)
+    total_res = resultado.sum(axis=1)
+    ok = (total > 0) & (total_res > 0)
+    a, b, total = grupos[ok] / total[ok, None], resultado[ok] / total_res[ok, None], total[ok]
     peso = np.sqrt(total / total.mean())[:, None]
-    J, K = len(ORIGENS), len(DESTINOS)
+    J, K = a.shape[1], b.shape[1]
 
     def erro(p):
         return (((a @ p.reshape(J, K) - b) * peso) ** 2).sum()
@@ -115,7 +118,77 @@ def matriz_transferencia(mun: pd.DataFrame) -> pd.DataFrame:
     r = minimize(erro, np.full(J * K, 1 / K), bounds=[(0, 1)] * (J * K),
                  constraints=restricoes, method="SLSQP",
                  options={"maxiter": 1000, "ftol": 1e-12})
-    return pd.DataFrame(r.x.reshape(J, K), index=ORIGENS, columns=DESTINOS)
+    return r.x.reshape(J, K)
+
+
+@st.cache_data
+def matriz_transferencia(mun: pd.DataFrame) -> pd.DataFrame:
+    """Para onde foi, no 2º turno, cada grupo de eleitores do 1º."""
+    P = ajustar_proporcoes(mun[[f"t1_{g}" for g in ORIGENS]].to_numpy(float),
+                           mun[[f"t2_{g}" for g in DESTINOS]].to_numpy(float))
+    return pd.DataFrame(P, index=ORIGENS, columns=DESTINOS)
+
+
+# ---------------------------------------------------------------------------
+# 4b) Escolaridade
+# ---------------------------------------------------------------------------
+NIVEIS_ESCOLARIDADE = {
+    "esc_analfabeto": "Analfabeto",
+    "esc_le_escreve": "Lê e escreve",
+    "esc_fund_incompleto": "Fundamental incompleto",
+    "esc_fund_completo": "Fundamental completo",
+    "esc_medio_incompleto": "Médio incompleto",
+    "esc_medio_completo": "Médio completo",
+    "esc_sup_incompleto": "Superior incompleto",
+    "esc_sup_completo": "Superior completo",
+}
+# Os 8 níveis agrupados em 4 faixas, para os gráficos ficarem legíveis
+FAIXAS_ESCOLARIDADE = {
+    "Sem fundamental completo": ["esc_analfabeto", "esc_le_escreve", "esc_fund_incompleto"],
+    "Fundamental completo": ["esc_fund_completo", "esc_medio_incompleto"],
+    "Médio completo": ["esc_medio_completo", "esc_sup_incompleto"],
+    "Superior completo": ["esc_sup_completo"],
+}
+# Escala de roxo: longe do azul e do vermelho dos candidatos
+CORES_ESCOLARIDADE = dict(zip(FAIXAS_ESCOLARIDADE, ["#D9CCEB", "#AE93D4", "#7A55B0", "#45267A"]))
+# O modelo usa só 2 faixas: com 4, elas variam juntas entre os municípios e a
+# estimativa cai em extremos (0% ou 100%) sem sentido
+FAIXAS_MODELO = {
+    "Até ensino fundamental": FAIXAS_ESCOLARIDADE["Sem fundamental completo"]
+                              + FAIXAS_ESCOLARIDADE["Fundamental completo"],
+    "Ensino médio ou mais": FAIXAS_ESCOLARIDADE["Médio completo"]
+                            + FAIXAS_ESCOLARIDADE["Superior completo"],
+}
+CORES_ESCOLARIDADE.update(zip(FAIXAS_MODELO, ["#AE93D4", "#45267A"]))
+
+
+def tem_escolaridade(perfil) -> bool:
+    return perfil is not None and all(c in perfil for c in NIVEIS_ESCOLARIDADE)
+
+
+@st.cache_data
+def voto_por_escolaridade(mun: pd.DataFrame, perfil: pd.DataFrame) -> pd.DataFrame:
+    """Estima como votou cada faixa de escolaridade em cada turno.
+
+    Retorna uma linha por faixa com a parcela dos eleitores que votou em Lula, Flávio,
+    nos demais candidatos ou não votou validamente (branco, nulo ou abstenção).
+    """
+    d = mun.merge(perfil[["cd_tse"] + list(NIVEIS_ESCOLARIDADE)], on="cd_tse")
+    grupos = np.column_stack([d[cols].sum(axis=1) for cols in FAIXAS_MODELO.values()])
+    fora1 = d["t1_Branco/Nulo"] + d["t1_Abstenção"]
+    fora2 = d["t2_Branco/Nulo"] + d["t2_Abstenção"]
+    demais = d[[f"t1_{g}" for g in ELIMINADOS]].sum(axis=1)
+    t1 = np.column_stack([d["t1_Lula"], d["t1_Flávio"], demais, fora1]).astype(float)
+    t2 = np.column_stack([d["t2_Lula"], d["t2_Flávio"], fora2]).astype(float)
+    P1 = ajustar_proporcoes(grupos.astype(float), t1)
+    P2 = ajustar_proporcoes(grupos.astype(float), t2)
+    res = pd.DataFrame(index=list(FAIXAS_MODELO))
+    res["eleitores"] = grupos.sum(axis=0)
+    for i, nome in enumerate(["Lula", "Flávio", "Demais", "Não votou"]):
+        res[f"t1_{nome}"] = P1[:, i]
+    for i, nome in enumerate(["Lula", "Flávio", "Não votou"]):
+        res[f"t2_{nome}"] = P2[:, i]
+    return res
 
 
 # ---------------------------------------------------------------------------

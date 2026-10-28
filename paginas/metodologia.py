@@ -15,8 +15,9 @@ etapas = [
     ("4. Validação", "Conferência de totais e de consistência entre as fontes (tabela abaixo)."),
     ("5. Exploração", "Resultados de cada turno por candidato, região, estado e município "
                       "(páginas 1º e 2º turno)."),
-    ("6. Modelagem", "Matriz de transferência de votos estimada por inferência ecológica "
-                     "(página Comparação)."),
+    ("6. Modelagem", "Matriz de transferência de votos e mudança de voto por faixa de "
+                     "escolaridade, estimadas por inferência ecológica (páginas Comparação e "
+                     "Escolaridade)."),
     ("7. Conclusão", "Fontes dos votos novos de Lula, regiões e perfis onde ele mais cresceu."),
 ]
 for titulo, texto in etapas:

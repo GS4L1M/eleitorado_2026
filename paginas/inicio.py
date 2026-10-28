@@ -54,7 +54,7 @@ st.markdown(f"""
 
 st.divider()
 st.markdown("### Navegue pela análise")
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c5, c4 = st.columns(5)
 with c1:
     st.page_link("paginas/primeiro_turno.py", label="1º turno", icon="1️⃣")
     st.caption("Resultado por candidato, mapa e regiões.")
@@ -64,6 +64,9 @@ with c2:
 with c3:
     st.page_link("paginas/comparacao.py", label="Comparação", icon="🔀")
     st.caption("O que mudou e de onde vieram os votos de Lula.")
+with c5:
+    st.page_link("paginas/escolaridade.py", label="Escolaridade", icon="🎓")
+    st.caption("Como votou cada nível de escolaridade.")
 with c4:
     st.page_link("paginas/metodologia.py", label="Metodologia", icon="🧪")
     st.caption("Etapas da análise, fontes e validações.")

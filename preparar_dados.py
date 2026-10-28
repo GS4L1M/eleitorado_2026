@@ -122,6 +122,19 @@ def preparar_comparecimento() -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # 4) Perfil do eleitorado por município (lê os 27 CSVs, ~25 GB)
 # ---------------------------------------------------------------------------
+# Os 8 níveis de escolaridade do TSE e o nome curto da coluna em dados/
+NIVEIS_ESCOLARIDADE = {
+    "ANALFABETO": "esc_analfabeto",
+    "LÊ E ESCREVE": "esc_le_escreve",
+    "ENSINO FUNDAMENTAL INCOMPLETO": "esc_fund_incompleto",
+    "ENSINO FUNDAMENTAL COMPLETO": "esc_fund_completo",
+    "ENSINO MÉDIO INCOMPLETO": "esc_medio_incompleto",
+    "ENSINO MÉDIO COMPLETO": "esc_medio_completo",
+    "SUPERIOR INCOMPLETO": "esc_sup_incompleto",
+    "SUPERIOR COMPLETO": "esc_sup_completo",
+}
+
+
 def preparar_perfil() -> pd.DataFrame:
     jovens = {"16 anos", "17 anos", "18 anos", "19 anos", "20 anos", "21 a 24 anos"}
     escolaridade_baixa = {"ANALFABETO", "LÊ E ESCREVE", "ENSINO FUNDAMENTAL INCOMPLETO"}
@@ -148,6 +161,8 @@ def preparar_perfil() -> pd.DataFrame:
                 "idosos_60_mais": q.where(idade >= 60, 0),
                 "escolaridade_baixa": q.where(p["DS_GRAU_ESCOLARIDADE"].isin(escolaridade_baixa), 0),
                 "superior_completo": q.where(p["DS_GRAU_ESCOLARIDADE"] == "SUPERIOR COMPLETO", 0),
+                **{col: q.where(p["DS_GRAU_ESCOLARIDADE"] == nivel, 0)
+                   for nivel, col in NIVEIS_ESCOLARIDADE.items()},
             }).groupby("cd_tse").sum())
         df = pd.concat(partes).groupby(level=0).sum()
         df.insert(0, "uf", uf)
