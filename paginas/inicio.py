@@ -65,8 +65,8 @@ with c3:
     st.page_link("paginas/comparacao.py", label="Comparação", icon="🔀")
     st.caption("O que mudou e de onde vieram os votos de Lula.")
 with c5:
-    st.page_link("paginas/escolaridade.py", label="Escolaridade", icon="🎓")
-    st.caption("Como votou cada nível de escolaridade.")
+    st.page_link("paginas/perfil_eleitorado.py", label="Perfil do eleitorado", icon="👥")
+    st.caption("Idade e escolaridade dos eleitores de cada estado.")
 with c4:
     st.page_link("paginas/metodologia.py", label="Metodologia", icon="🧪")
     st.caption("Etapas da análise, fontes e validações.")

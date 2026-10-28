@@ -151,44 +151,55 @@ FAIXAS_ESCOLARIDADE = {
 }
 # Escala de roxo: longe do azul e do vermelho dos candidatos
 CORES_ESCOLARIDADE = dict(zip(FAIXAS_ESCOLARIDADE, ["#D9CCEB", "#AE93D4", "#7A55B0", "#45267A"]))
-# O modelo usa só 2 faixas: com 4, elas variam juntas entre os municípios e a
-# estimativa cai em extremos (0% ou 100%) sem sentido
-FAIXAS_MODELO = {
-    "Até ensino fundamental": FAIXAS_ESCOLARIDADE["Sem fundamental completo"]
-                              + FAIXAS_ESCOLARIDADE["Fundamental completo"],
-    "Ensino médio ou mais": FAIXAS_ESCOLARIDADE["Médio completo"]
-                            + FAIXAS_ESCOLARIDADE["Superior completo"],
+
+FAIXAS_IDADE = {
+    "idade_16_17": "16 e 17",
+    "idade_18_24": "18 a 24",
+    "idade_25_34": "25 a 34",
+    "idade_35_44": "35 a 44",
+    "idade_45_59": "45 a 59",
+    "idade_60_69": "60 a 69",
+    "idade_70_mais": "70 ou mais",
 }
-CORES_ESCOLARIDADE.update(zip(FAIXAS_MODELO, ["#AE93D4", "#45267A"]))
+# Escala de verde-azulado, do mais jovem (claro) ao mais velho (escuro)
+CORES_IDADE = dict(zip(FAIXAS_IDADE.values(), ["#D4F0EC", "#A8DFD6", "#72C7BA", "#3FA89A",
+                                                 "#22867A", "#16655C", "#0B443E"]))
 
 
-def tem_escolaridade(perfil) -> bool:
-    return perfil is not None and all(c in perfil for c in NIVEIS_ESCOLARIDADE)
+def tem_perfil_completo(perfil) -> bool:
+    return perfil is not None and all(c in perfil for c in [*NIVEIS_ESCOLARIDADE, *FAIXAS_IDADE])
 
 
 @st.cache_data
-def voto_por_escolaridade(mun: pd.DataFrame, perfil: pd.DataFrame) -> pd.DataFrame:
-    """Estima como votou cada faixa de escolaridade em cada turno.
+def perfil_por_uf() -> pd.DataFrame:
+    """Uma linha por estado: eleitores por faixa de idade e escolaridade, e votos."""
+    _, _, perfil = carregar()
+    p = perfil.copy()
+    for faixa, cols in FAIXAS_ESCOLARIDADE.items():
+        p[faixa] = p[cols].sum(axis=1)
+    p = p.rename(columns=FAIXAS_IDADE)
+    cols = ["eleitores", "mulheres", *FAIXAS_ESCOLARIDADE, *FAIXAS_IDADE.values()]
+    uf = p.groupby("uf")[cols].sum()
 
-    Retorna uma linha por faixa com a parcela dos eleitores que votou em Lula, Flávio,
-    nos demais candidatos ou não votou validamente (branco, nulo ou abstenção).
-    """
-    d = mun.merge(perfil[["cd_tse"] + list(NIVEIS_ESCOLARIDADE)], on="cd_tse")
-    grupos = np.column_stack([d[cols].sum(axis=1) for cols in FAIXAS_MODELO.values()])
-    fora1 = d["t1_Branco/Nulo"] + d["t1_Abstenção"]
-    fora2 = d["t2_Branco/Nulo"] + d["t2_Abstenção"]
-    demais = d[[f"t1_{g}" for g in ELIMINADOS]].sum(axis=1)
-    t1 = np.column_stack([d["t1_Lula"], d["t1_Flávio"], demais, fora1]).astype(float)
-    t2 = np.column_stack([d["t2_Lula"], d["t2_Flávio"], fora2]).astype(float)
-    P1 = ajustar_proporcoes(grupos.astype(float), t1)
-    P2 = ajustar_proporcoes(grupos.astype(float), t2)
-    res = pd.DataFrame(index=list(FAIXAS_MODELO))
-    res["eleitores"] = grupos.sum(axis=0)
-    for i, nome in enumerate(["Lula", "Flávio", "Demais", "Não votou"]):
-        res[f"t1_{nome}"] = P1[:, i]
-    for i, nome in enumerate(["Lula", "Flávio", "Não votou"]):
-        res[f"t2_{nome}"] = P2[:, i]
-    return res
+    # Percentuais sobre o total de cada bloco (idade e escolaridade têm poucos "não informados")
+    total_esc = uf[list(FAIXAS_ESCOLARIDADE)].sum(axis=1)
+    total_idade = uf[list(FAIXAS_IDADE.values())].sum(axis=1)
+    for f in FAIXAS_ESCOLARIDADE:
+        uf[f"% {f}"] = uf[f] / total_esc * 100
+    for f in FAIXAS_IDADE.values():
+        uf[f"% {f}"] = uf[f] / total_idade * 100
+    uf["% mulheres"] = uf["mulheres"] / uf["eleitores"] * 100
+    uf["% até 24 anos"] = uf[["% 16 e 17", "% 18 a 24"]].sum(axis=1)
+    uf["% 60 ou mais"] = uf[["% 60 a 69", "% 70 ou mais"]].sum(axis=1)
+
+    votos = tabela_municipios().groupby(["uf", "regiao"])[
+        ["t1_Lula", "t1_Flávio", "t1_validos", "t2_Lula", "t2_Flávio", "t2_validos"]].sum()
+    votos = votos.reset_index("regiao")
+    uf = uf.join(votos, how="inner")
+    uf["% Lula 2º"] = uf["t2_Lula"] / uf["t2_validos"] * 100
+    uf["% Flávio 2º"] = uf["t2_Flávio"] / uf["t2_validos"] * 100
+    uf["vencedor"] = np.where(uf["t2_Lula"] >= uf["t2_Flávio"], "Lula", "Flávio")
+    return uf
 
 
 # ---------------------------------------------------------------------------

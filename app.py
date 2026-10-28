@@ -16,7 +16,7 @@ paginas = st.navigation([
     st.Page("paginas/primeiro_turno.py", title="1º turno", icon="1️⃣"),
     st.Page("paginas/segundo_turno.py", title="2º turno", icon="2️⃣"),
     st.Page("paginas/comparacao.py", title="Comparação entre turnos", icon="🔀"),
-    st.Page("paginas/escolaridade.py", title="Escolaridade", icon="🎓"),
+    st.Page("paginas/perfil_eleitorado.py", title="Perfil do eleitorado", icon="👥"),
     st.Page("paginas/metodologia.py", title="Metodologia e dados", icon="🧪"),
 ])
 

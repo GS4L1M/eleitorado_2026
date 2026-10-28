@@ -47,9 +47,9 @@ a memória RAM), e resumidos em tabelas por município de poucos MB. O dashboard
 - **Comparação entre turnos**: mapas do vencedor nos dois turnos lado a lado, de onde vieram os
   votos novos de cada candidato, para onde foi cada grupo de eleitores, crescimento por região,
   perfil dos municípios onde Lula mais cresceu e ranking de municípios.
-- **Escolaridade**: escolaridade do eleitorado por região e no mapa, voto de Lula nos
-  municípios mais e menos escolarizados e estimativa de quanto cada faixa de escolaridade
-  mudou o voto entre os turnos.
+- **Perfil do eleitorado**: faixa etária e escolaridade dos eleitores de cada estado,
+  comparação entre estados escolhidos e tabela com perfil e votos de todos os estados.
+  A página descreve o eleitorado; ela não indica em quem cada grupo votou.
 - **Metodologia e dados**: etapas, fontes, checagens de qualidade e limites da análise.
 
 ### Como a transferência é estimada

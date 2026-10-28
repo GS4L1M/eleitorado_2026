@@ -135,6 +135,18 @@ NIVEIS_ESCOLARIDADE = {
 }
 
 
+# Faixas de idade: (idade inicial, idade final, nome da coluna em dados/)
+FAIXAS_IDADE = [
+    (16, 17, "idade_16_17"),
+    (18, 24, "idade_18_24"),
+    (25, 34, "idade_25_34"),
+    (35, 44, "idade_35_44"),
+    (45, 59, "idade_45_59"),
+    (60, 69, "idade_60_69"),
+    (70, 200, "idade_70_mais"),
+]
+
+
 def preparar_perfil() -> pd.DataFrame:
     jovens = {"16 anos", "17 anos", "18 anos", "19 anos", "20 anos", "21 a 24 anos"}
     escolaridade_baixa = {"ANALFABETO", "LÊ E ESCREVE", "ENSINO FUNDAMENTAL INCOMPLETO"}
@@ -163,6 +175,8 @@ def preparar_perfil() -> pd.DataFrame:
                 "superior_completo": q.where(p["DS_GRAU_ESCOLARIDADE"] == "SUPERIOR COMPLETO", 0),
                 **{col: q.where(p["DS_GRAU_ESCOLARIDADE"] == nivel, 0)
                    for nivel, col in NIVEIS_ESCOLARIDADE.items()},
+                **{col: q.where(idade.between(ini, fim), 0)
+                   for ini, fim, col in FAIXAS_IDADE},
             }).groupby("cd_tse").sum())
         df = pd.concat(partes).groupby(level=0).sum()
         df.insert(0, "uf", uf)
