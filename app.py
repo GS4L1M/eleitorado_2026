@@ -198,21 +198,38 @@ with col_b:
     st.caption(f"Votos reais de Lula no 2º turno: **{fmt(s['t2_Lula'])}**. "
                f"Estimativa do modelo: **{fmt(fluxo['Lula'].sum())}**.")
 
-# Sankey com todos os fluxos
-origem_idx = {g: i for i, g in enumerate(ORIGENS)}
-destino_idx = {g: len(ORIGENS) + i for i, g in enumerate(DESTINOS)}
-links = [(origem_idx[o], destino_idx[d], fluxo.loc[o, d])
-         for o in ORIGENS for d in DESTINOS if fluxo.loc[o, d] > 1000]
+# Sankey só com os votos em disputa: quem já votava em Lula ou Flávio e quem se
+# absteve nos dois turnos ficam de fora, senão escondem as transferências
+em_disputa = fluxo.loc[ORIGENS[2:]].copy()
+em_disputa.loc["Abstenção", "Abstenção"] = 0
+origens_s = [o for o in em_disputa.index if em_disputa.loc[o].sum() > 1000]
+destinos_s = [d for d in DESTINOS if em_disputa[d].sum() > 1000]
+n_orig = len(origens_s)
+links = [(i, n_orig + k, em_disputa.loc[o, d])
+         for i, o in enumerate(origens_s) for k, d in enumerate(destinos_s)
+         if em_disputa.loc[o, d] > 1000]
+rotulo_orig = {"Branco/Nulo": "Branco/Nulo", "Abstenção": "Abstenção → foi votar"}
 sankey = go.Figure(go.Sankey(
-    node=dict(label=[f"{g} (1º)" for g in ORIGENS] + [f"{g} (2º)" for g in DESTINOS],
-              color=[CORES[g] for g in ORIGENS] + [CORES[g] for g in DESTINOS], pad=14),
+    arrangement="snap",
+    valueformat=",.0f",
+    node=dict(
+        label=[f"{rotulo_orig.get(o, o)}  {fmt(em_disputa.loc[o].sum())}" for o in origens_s]
+              + [f"{d}  +{fmt(em_disputa[d].sum())}" for d in destinos_s],
+        color=[CORES[o] for o in origens_s] + [CORES[d] for d in destinos_s],
+        pad=22, thickness=18, line=dict(width=0),
+        hovertemplate="%{label}<extra></extra>"),
     link=dict(source=[l[0] for l in links], target=[l[1] for l in links],
               value=[l[2] for l in links],
-              color=[transparente(CORES[DESTINOS[l[1] - len(ORIGENS)]]) for l in links]),
+              color=[transparente(CORES[destinos_s[l[1] - n_orig]], 0.45) for l in links],
+              hovertemplate="%{source.label} → %{target.label}<br>%{value:,.0f} votos<extra></extra>"),
 ))
-sankey.update_layout(title="Fluxo estimado do 1º para o 2º turno", height=480,
-                     margin=dict(t=50, b=10))
+sankey.update_layout(title="Para onde foram os votos em disputa (estimado)", height=520,
+                     font=dict(size=14), margin=dict(t=50, b=20, l=10, r=10))
+sankey.update_traces(textfont=dict(size=14, color="#222"), selector=dict(type="sankey"))
 st.plotly_chart(sankey, width="stretch")
+st.caption("Esquerda: eleitores dos candidatos eliminados, quem votou branco/nulo e quem se absteve "
+           "no 1º turno mas votou no 2º. Direita: onde esses votos foram parar. "
+           "Os eleitores que repetiram Lula ou Flávio não aparecem.")
 
 with st.expander("Como essa estimativa é feita (e seus limites)"):
     st.markdown("""
@@ -324,7 +341,8 @@ else:
                    "pct_idosos_60_mais": "% com 60 anos ou mais",
                    "pct_jovens_16_24": "% de 16 a 24 anos",
                    "pct_mulheres": "% mulheres"}
-    escolha = st.selectbox("Comparar com", list(indicadores), format_func=indicadores.get)
+    rotulo = st.selectbox("Comparar com", list(indicadores.values()))
+    escolha = next(k for k, v in indicadores.items() if v == rotulo)
     corr = np.corrcoef(pm[escolha], pm["crescimento"])[0, 1]
     fig = px.scatter(pm, x=escolha, y="crescimento", size="aptos", color="regiao",
                      hover_name="municipio", size_max=30, opacity=0.6,
