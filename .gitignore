@@ -1,0 +1,13 @@
+# Dados baixados (arquivos grandes demais para o GitHub)
+*.csv
+*.zip
+
+# IDE
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
