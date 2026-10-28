@@ -1,91 +1,85 @@
-# Consolidação de Dados de Eleitorado - Brasil 2026
+# De onde vieram os votos de Lula? · Eleições 2026
 
-Oct 28, 2026 · @Omnitrack
+Dashboard em **Streamlit** que analisa a eleição presidencial de 2026 por região e por município,
+com foco em uma pergunta:
 
-## Resumo Executivo
+> **Lula terminou o 1º turno atrás de Flávio Bolsonaro e venceu o 2º turno. De onde vieram
+> os 10 milhões de votos a mais que ele recebeu?**
 
-Análise consolidada do perfil do eleitorado brasileiro (2026) por seção eleitoral em todos os 27 estados. Os dados estão disponíveis no Portal de Dados Abertos do TSE em formato CSV, separados por estado.
+| | 1º turno | 2º turno | Diferença |
+|---|---:|---:|---:|
+| Lula | 53,88 mi | 64,26 mi | **+10,38 mi** |
+| Flávio Bolsonaro | 56,10 mi | 59,83 mi | +3,72 mi |
+| Votos dos candidatos eliminados | 9,32 mi | — | |
+| Brancos e nulos | 5,97 mi | 4,15 mi | −1,82 mi |
+| Abstenção | 33,47 mi | 30,51 mi | −2,96 mi |
 
-Objetivo: visualizar no Power BI características demográficas do eleitorado (gênero, faixa etária, etc) por estado e identificar padrões gerais para o Brasil.
+Fonte: TSE, votação por seção eleitoral.
 
-## Abordagem 1: Download Manual
+## Por que Streamlit e não Power BI
 
-**Processo manual direto no portal:**
+Os CSVs do perfil do eleitorado somam cerca de 25 GB, mais do que os 5 GB do OneDrive gratuito
+usado pelo Power BI web. Aqui os arquivos grandes são lidos **uma vez**, em pedaços (sem estourar
+a memória RAM), e resumidos em tabelas por município de poucos MB. O dashboard só lê esse resumo.
 
-1. Acesse https://dadosabertos.tse.jus.br
-2. Procure por "Perfil do eleitorado por seção eleitoral - 2026"
-3. Clique em "Explorar" para cada estado
-4. Download do arquivo CSV
-5. Salve todos os CSVs em uma pasta local (ex: `C:\eleitorado_2026\`)
+## O que o dashboard mostra
 
-**Vantagens:** Controle total, nenhuma dependência de código, rápido se poucos estados.
+1. **Indicadores**: votos de cada candidato nos dois turnos, abstenção, brancos e nulos.
+2. **Transferência de votos**: estimativa de quanto do voto de cada candidato eliminado, dos
+   brancos/nulos e da abstenção do 1º turno foi para Lula, para Flávio ou ficou de fora no 2º
+   turno (gráfico em cascata, matriz e diagrama de fluxo).
+3. **Mapa** por estado ou por município: margem no 2º turno, vencedor de cada turno e
+   crescimento de Lula. **Azul = Flávio Bolsonaro · Vermelho = Lula.**
+4. **Por região**: quanto cada candidato ganhou entre os turnos em cada região e de onde vieram
+   os votos novos de Lula.
+5. **Perfil do eleitorado**: relação entre o crescimento de Lula e escolaridade, idade e gênero
+   dos eleitores de cada município.
+6. **Ranking** dos municípios onde Lula mais ganhou votos.
 
-**Desvantagens:** Manual, repetitivo para 27 estados, propenso a erros.
+Todas as seções respondem aos filtros de **região** e **estado** na barra lateral.
 
-## Abordagem 2: Download Automático com Python
+### Como a transferência é estimada
 
-**Identificar padrão de URL e fazer download em loop:**
+O voto é secreto, então não existe o dado "quem votou em Cury no 1º turno votou em quem no 2º".
+O dashboard usa **inferência ecológica**: compara o 1º e o 2º turno em mais de 5.500 municípios
+e encontra as proporções de transferência (entre 0% e 100%, somando 100% para cada origem) que
+melhor explicam todos ao mesmo tempo. O resultado é uma **estimativa média**. Ele é mais
+confiável quando filtrado por região e deve ser lido como ordem de grandeza, não como contagem
+exata.
 
-Os arquivos provavelmente seguem um padrão tipo:
+## Como rodar
 
+Requer Python 3.10 ou mais recente.
+
+```powershell
+pip install -r requirements.txt
+
+# 1. Baixa os resultados do TSE e as malhas do IBGE e gera os resumos em dados/
+python preparar_dados.py
+
+# (opcional) também resume o perfil do eleitorado. Precisa dos CSVs por UF
+# baixados com baixar_eleitorado_2026.py e demora bastante.
+python preparar_dados.py --perfil
+
+# 2. Abre o dashboard no navegador
+python -m streamlit run app.py
 ```
-https://cdn.tse.jus.br/[...]/perfil_eleitorado_secao_2026_XX.csv
-```
 
-Onde `XX` = UF (MG, SP, RJ, RS, etc).
+## Arquivos
 
-**Vantagens:** Automático, rápido para todos os 27 estados, reproduzível.
+| Arquivo | O que faz |
+|---|---|
+| `baixar_eleitorado_2026.py` | Baixa o perfil do eleitorado por seção (TSE) das 27 UFs, um CSV por estado |
+| `preparar_dados.py` | Baixa os resultados da eleição e resume tudo por município em `dados/` |
+| `app.py` | O dashboard Streamlit |
+| `dados/` | Resumos prontos para o dashboard (gerados pelo `preparar_dados.py`) |
 
-**Desvantagens:** Requer descobrir o padrão de URL exato, validação de download.
+Os arquivos brutos (CSVs por UF e `_brutos/`) não vão para o repositório por causa do tamanho.
 
-**Codigo no github**
+## Fontes
 
-## Consolidação no Power BI
-
-**Passo 1: Organizar arquivos locais**
-
-Crie uma pasta com todos os CSVs, ex:
-
-```
-C:\eleitorado_2026\
-  ├── MG.csv
-  ├── SP.csv
-  ├── RJ.csv
-  └── ... (todos os 27 estados)
-```
-
-**Passo 2: Importar dados**
-
-1. Power BI → **Get Data** → **Folder**
-2. Aponte para `C:\eleitorado_2026\`
-3. Clique **Combine & Load**
-
-Power BI detecta automaticamente que todos têm a mesma estrutura e consolida tudo numa tabela única.
-
-**Passo 3: Transformar dados (se necessário)**
-
-No Power Query, adicione coluna com o estado (extraindo do nome do arquivo ou adicionando manualmente antes do import).
-
-**Resultado final:** Um dataset consolidado com todos os estados prontos para visualização.
-
-## Análises Visuais e KPIs Propostos
-
-**Dashboards sugeridos:**
-
-1. **Perfil Demográfico Nacional**
-   - Total de eleitores no Brasil
-   - Distribuição por gênero (gráfico de pizza)
-   - Distribuição por faixa etária (histograma)
-2. **Análise por Estado**
-   - Tabela: Estado, Total de eleitores, % gênero, faixa etária principal
-   - Mapa do Brasil com densidade de eleitores por estado
-   - Ranking de estados por total de eleitores
-3. **Comparações Regionais**
-   - Género: comparação Norte vs Nordeste vs Centro-Oeste vs Sudeste vs Sul
-   - Faixa etária: pie charts por região
-4. **Insights Gerais**
-   - Qual estado tem maior concentração de jovens/idosos?
-   - Qual região tem melhor equilíbrio gênero/idade?
-   - Padrões de variação entre seções eleitorais
-
-**Próximos passos:** Definir quais visualizações priorizar de acordo com os objetivos da análise.
+- TSE · Portal de Dados Abertos: [votação por seção eleitoral](https://dadosabertos.tse.jus.br),
+  detalhe da votação por município e zona, perfil do eleitorado por seção 2026
+- IBGE · [API de malhas territoriais](https://servicodados.ibge.gov.br/api/docs/malhas)
+- Correspondência de códigos TSE ↔ IBGE:
+  [betafcc/Municipios-Brasileiros-TSE](https://github.com/betafcc/Municipios-Brasileiros-TSE)

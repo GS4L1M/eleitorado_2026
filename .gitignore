@@ -1,6 +1,7 @@
 # Dados baixados (arquivos grandes demais para o GitHub)
 *.csv
 *.zip
+_brutos/
 
 # IDE
 .idea/
