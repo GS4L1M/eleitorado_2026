@@ -22,21 +22,32 @@ Os CSVs do perfil do eleitorado somam cerca de 25 GB, mais do que os 5 GB do One
 usado pelo Power BI web. Aqui os arquivos grandes são lidos **uma vez**, em pedaços (sem estourar
 a memória RAM), e resumidos em tabelas por município de poucos MB. O dashboard só lê esse resumo.
 
-## O que o dashboard mostra
+## Etapas da análise
 
-1. **Indicadores**: votos de cada candidato nos dois turnos, abstenção, brancos e nulos.
-2. **Transferência de votos**: estimativa de quanto do voto de cada candidato eliminado, dos
-   brancos/nulos e da abstenção do 1º turno foi para Lula, para Flávio ou ficou de fora no 2º
-   turno (gráfico em cascata, matriz e diagrama de fluxo).
-3. **Mapa** por estado ou por município: margem no 2º turno, vencedor de cada turno e
-   crescimento de Lula. **Azul = Flávio Bolsonaro · Vermelho = Lula.**
-4. **Por região**: quanto cada candidato ganhou entre os turnos em cada região e de onde vieram
-   os votos novos de Lula.
-5. **Perfil do eleitorado**: relação entre o crescimento de Lula e escolaridade, idade e gênero
-   dos eleitores de cada município.
-6. **Ranking** dos municípios onde Lula mais ganhou votos.
+| Etapa | Onde |
+|---|---|
+| 1. Pergunta | De onde vieram os votos novos de Lula no 2º turno? |
+| 2. Coleta | `preparar_dados.py` baixa os dados do TSE e do IBGE |
+| 3. Tratamento | `preparar_dados.py` agrega por município, turno e candidato |
+| 4. Validação | Página **Metodologia e dados** confere totais entre as fontes |
+| 5. Exploração | Páginas **1º turno** e **2º turno** |
+| 6. Modelagem | Página **Comparação**: matriz de transferência de votos |
+| 7. Conclusão | Página **Início** resume os achados |
 
-Todas as seções respondem aos filtros de **região** e **estado** na barra lateral.
+## Páginas do dashboard
+
+**Azul = Flávio Bolsonaro · Vermelho = Lula.** Todas as páginas respondem aos filtros de
+**região** e **estado** na barra lateral, e os mapas podem ser vistos por estado ou por município.
+
+- **Início**: resultado dos dois turnos lado a lado e o resumo da análise.
+- **1º turno**: votos por candidato, mapa de quem ficou em 1º lugar, divisão por região e onde
+  os candidatos eliminados foram mais fortes.
+- **2º turno**: Lula x Flávio, mapa da vantagem de cada um, ranking dos estados e resultado
+  por região.
+- **Comparação entre turnos**: mapas do vencedor nos dois turnos lado a lado, de onde vieram os
+  votos novos de cada candidato, para onde foi cada grupo de eleitores, crescimento por região,
+  perfil dos municípios onde Lula mais cresceu e ranking de municípios.
+- **Metodologia e dados**: etapas, fontes, checagens de qualidade e limites da análise.
 
 ### Como a transferência é estimada
 
@@ -71,7 +82,9 @@ python -m streamlit run app.py
 |---|---|
 | `baixar_eleitorado_2026.py` | Baixa o perfil do eleitorado por seção (TSE) das 27 UFs, um CSV por estado |
 | `preparar_dados.py` | Baixa os resultados da eleição e resume tudo por município em `dados/` |
-| `app.py` | O dashboard Streamlit |
+| `app.py` | Abre o dashboard: menu de páginas e filtros |
+| `analise.py` | Funções compartilhadas: carga dos dados, modelo de transferência, mapas |
+| `paginas/` | Uma página por etapa da análise |
 | `dados/` | Resumos prontos para o dashboard (gerados pelo `preparar_dados.py`) |
 
 Os arquivos brutos (CSVs por UF e `_brutos/`) não vão para o repositório por causa do tamanho.
